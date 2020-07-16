@@ -1,10 +1,12 @@
 import tensorflow as tf
-from tensorflow.examples.tutorials.mnist import input_data
+
+# from tensorflow.examples.tutorials.mnist import input_data
+import input_data
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import os
-
+tf.compat.v1.disable_eager_execution()
 # Sample z from uniform distribution
 def sample_Z(m, n):
     return np.random.uniform(-1., 1., size=[m, n])
@@ -25,22 +27,22 @@ def plot(samples):
     return fig
 
 # Input image, for discriminator model.
-X = tf.placeholder(tf.float32, shape=[None, 784])
+X = tf.compat.v1.placeholder(tf.float32, shape=[None, 784])
 
 # Input noise for generator.
-Z = tf.placeholder(tf.float32, shape=[None, 100])
+Z = tf.compat.v1.placeholder(tf.float32, shape=[None, 100])
 
 def generator(z):
-    with tf.variable_scope("generator", reuse=tf.AUTO_REUSE):
-        x = tf.layers.dense(z, 128, activation=tf.nn.relu)
-        x = tf.layers.dense(z, 784)
+    with tf.compat.v1.variable_scope("generator", reuse=tf.compat.v1.AUTO_REUSE):
+        x = tf.compat.v1.layers.dense(z, 128, activation=tf.nn.relu)
+        x = tf.compat.v1.layers.dense(z, 784)
         x = tf.nn.sigmoid(x)
     return x
 
 def discriminator(x):
-    with tf.variable_scope("discriminator", reuse=tf.AUTO_REUSE):
-        x = tf.layers.dense(x, 128, activation=tf.nn.relu)
-        x = tf.layers.dense(x, 1)
+    with tf.compat.v1.variable_scope("discriminator", reuse=tf.compat.v1.AUTO_REUSE):
+        x = tf.compat.v1.layers.dense(x, 128, activation=tf.nn.relu)
+        x = tf.compat.v1.layers.dense(x, 1)
         x = tf.nn.sigmoid(x)
     return x
 
@@ -53,16 +55,16 @@ D_fake = discriminator(G_sample)
 
 
 # Loss function
-D_loss = -tf.reduce_mean(tf.log(D_real) + tf.log(1. - D_fake))
-G_loss = -tf.reduce_mean(tf.log(D_fake))
+D_loss = -tf.reduce_mean(input_tensor=tf.math.log(D_real) + tf.math.log(1. - D_fake))
+G_loss = -tf.reduce_mean(input_tensor=tf.math.log(D_fake))
 
 # Select parameters
-disc_vars = [var for var in tf.trainable_variables() if var.name.startswith("disc")]
-gen_vars = [var for var in tf.trainable_variables() if var.name.startswith("gen")]
+disc_vars = [var for var in tf.compat.v1.trainable_variables() if var.name.startswith("disc")]
+gen_vars = [var for var in tf.compat.v1.trainable_variables() if var.name.startswith("gen")]
 
 # Optimizers
-D_solver = tf.train.AdamOptimizer().minimize(D_loss, var_list=disc_vars)
-G_solver = tf.train.AdamOptimizer().minimize(G_loss, var_list=gen_vars)
+D_solver = tf.compat.v1.train.AdamOptimizer().minimize(D_loss, var_list=disc_vars)
+G_solver = tf.compat.v1.train.AdamOptimizer().minimize(G_loss, var_list=gen_vars)
 
 # Batch size
 mb_size = 128
@@ -72,8 +74,8 @@ Z_dim = 100
 
 mnist = input_data.read_data_sets('../../MNIST_data', one_hot=True)
 
-sess = tf.Session()
-sess.run(tf.global_variables_initializer())
+sess = tf.compat.v1.Session()
+sess.run(tf.compat.v1.global_variables_initializer())
 
 if not os.path.exists('out2/'):
     os.makedirs('out2/')
