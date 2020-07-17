@@ -1,110 +1,134 @@
-import tensorflow as tf
+from __future__ import print_function, division
+from tensorflow.keras.datasets import mnist
+from tensorflow.keras.layers import Input, Dense, Reshape, Flatten, Dropout
+from tensorflow.keras.layers import BatchNormalization, Activation, ZeroPadding2D
+from tensorflow.keras.layers import LeakyReLU
+from tensorflow.keras.layers import UpSampling2D, Conv2D
+from tensorflow.keras.models import Sequential, Model
+from tensorflow.keras.optimizers import Adam
 
-# from tensorflow.examples.tutorials.mnist import input_data
-import input_data
-import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
+
 import os
-tf.compat.v1.disable_eager_execution()
-# Sample z from uniform distribution
-def sample_Z(m, n):
-    return np.random.uniform(-1., 1., size=[m, n])
 
-def plot(samples):
-    fig = plt.figure(figsize=(4, 4))
-    gs = gridspec.GridSpec(4, 4)
-    gs.update(wspace=0.05, hspace=0.05)
+import numpy as np
 
-    for i, sample in enumerate(samples):
-        ax = plt.subplot(gs[i])
-        plt.axis('off')
-        ax.set_xticklabels([])
-        ax.set_yticklabels([])
-        ax.set_aspect('equal')
-        plt.imshow(sample.reshape(28, 28), cmap='Greys_r')
+class GAN():
+    def __init__(self):
 
-    return fig
+        self.vec_shape = (20,)
 
-# Input image, for discriminator model.
-X = tf.compat.v1.placeholder(tf.float32, shape=[None, 784])
+        self.latent_dim = 100
+        optimizer = Adam(0.0002, 0.5)
 
-# Input noise for generator.
-Z = tf.compat.v1.placeholder(tf.float32, shape=[None, 100])
+        # Build and compile the discriminator
+        self.discriminator = self.build_discriminator()
+        self.discriminator.compile(loss='binary_crossentropy',
+            optimizer=optimizer,
+            metrics=['accuracy'])
 
-def generator(z):
-    with tf.compat.v1.variable_scope("generator", reuse=tf.compat.v1.AUTO_REUSE):
-        x = tf.compat.v1.layers.dense(z, 128, activation=tf.nn.relu)
-        x = tf.compat.v1.layers.dense(z, 784)
-        x = tf.nn.sigmoid(x)
-    return x
+        # Build the generator
+        self.generator = self.build_generator()
 
-def discriminator(x):
-    with tf.compat.v1.variable_scope("discriminator", reuse=tf.compat.v1.AUTO_REUSE):
-        x = tf.compat.v1.layers.dense(x, 128, activation=tf.nn.relu)
-        x = tf.compat.v1.layers.dense(x, 1)
-        x = tf.nn.sigmoid(x)
-    return x
+        # The generator takes noise as input and generates vectors
+        z = Input(shape=(self.latent_dim,))
+        vec = self.generator(z)
 
-# Generator model
-G_sample = generator(Z)
+        # For the combined model we will only train the generator
+        self.discriminator.trainable = False
 
-# Discriminator models
-D_real = discriminator(X)
-D_fake = discriminator(G_sample)
+        # The discriminator takes generated images as input and determines validity
+        validity = self.discriminator(vec)
+
+        # The combined model  (stacked generator and discriminator)
+        # Trains the generator to fool the discriminator
+        self.combined = Model(z, validity)
+        self.combined.compile(loss='binary_crossentropy', optimizer=optimizer)
 
 
-# Loss function
-D_loss = -tf.reduce_mean(input_tensor=tf.math.log(D_real) + tf.math.log(1. - D_fake))
-G_loss = -tf.reduce_mean(input_tensor=tf.math.log(D_fake))
+    def build_generator(self):
 
-# Select parameters
-disc_vars = [var for var in tf.compat.v1.trainable_variables() if var.name.startswith("disc")]
-gen_vars = [var for var in tf.compat.v1.trainable_variables() if var.name.startswith("gen")]
+        model = Sequential()
 
-# Optimizers
-D_solver = tf.compat.v1.train.AdamOptimizer().minimize(D_loss, var_list=disc_vars)
-G_solver = tf.compat.v1.train.AdamOptimizer().minimize(G_loss, var_list=gen_vars)
+        model.add(Dense(256, input_dim=self.latent_dim))
+        model.add(LeakyReLU(alpha=0.2))
+        model.add(BatchNormalization(momentum=0.8))
+        model.add(Dense(512))
+        model.add(LeakyReLU(alpha=0.2))
+        model.add(BatchNormalization(momentum=0.8))
+        model.add(Dense(1024))
+        model.add(LeakyReLU(alpha=0.2))
+        model.add(BatchNormalization(momentum=0.8))
+        model.add(Dense(np.prod(self.vec_shape), activation='tanh'))
+        model.add(Reshape(self.vec_shape))
+        model.summary()
 
-# Batch size
-mb_size = 128
+        noise = Input(shape=(self.latent_dim,))
+        vec = model(noise)
 
-# Dimension of input noise
-Z_dim = 100
+        return Model(noise, vec)
 
-mnist = input_data.read_data_sets('../../MNIST_data', one_hot=True)
+    def build_discriminator(self):
 
-sess = tf.compat.v1.Session()
-sess.run(tf.compat.v1.global_variables_initializer())
+        model = Sequential()
+        model.add(Flatten(input_shape=self.vec_shape))
+        model.add(Dense(512))
+        model.add(LeakyReLU(alpha=0.2))
+        model.add(Dense(256))
+        model.add(LeakyReLU(alpha=0.2))
+        model.add(Dense(1, activation='sigmoid'))
+        model.summary()
+        vec = Input(shape=self.vec_shape)
+        validity = model(vec)
 
-if not os.path.exists('out2/'):
-    os.makedirs('out2/')
+        return Model(vec, validity)
 
-i = 0
+    def train(self, epochs, batch_size=128, sample_interval=50):
 
-for it in range(1000000):
+        # Load the dataset
+        (X_train, _), (_, _) = mnist.load_data()
 
-    # Save generated images every 1000 iterations.
-    if it % 1000 == 0:
-        samples = sess.run(G_sample, feed_dict={Z: sample_Z(16, Z_dim)})
+        # Rescale -1 to 1
+        X_train = X_train / 127.5 - 1.
+        X_train = np.expand_dims(X_train, axis=3)
 
-        fig = plot(samples)
-        plt.savefig('out2/{}.png'.format(str(i).zfill(3)), bbox_inches='tight')
-        i += 1
-        plt.close(fig)
+        # Adversarial ground truths
+        valid = np.ones((batch_size, 1))
+        fake = np.zeros((batch_size, 1))
+
+        for epoch in range(epochs):
+
+            # ---------------------
+            #  Train Discriminator
+            # ---------------------
+
+            # Select a random batch of images
+            idx = np.random.randint(0, X_train.shape[0], batch_size)
+            imgs = X_train[idx]
+
+            noise = np.random.normal(0, 1, (batch_size, self.latent_dim))
+
+            # Generate a batch of new images
+            gen_imgs = self.generator.predict(noise)
+
+            # Train the discriminator
+            d_loss_real = self.discriminator.train_on_batch(imgs, valid)
+            d_loss_fake = self.discriminator.train_on_batch(gen_imgs, fake)
+            d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)
+
+            # ---------------------
+            #  Train Generator
+            # ---------------------
+
+            noise = np.random.normal(0, 1, (batch_size, self.latent_dim))
+
+            # Train the generator (to have the discriminator label samples as valid)
+            g_loss = self.combined.train_on_batch(noise, valid)
+
+            # Plot the progress
+            print("%d [D loss: %f, acc.: %.2f%%] [G loss: %f]" % (epoch, d_loss[0], 100*d_loss[1], g_loss))
 
 
-    # Get next batch of images. Each batch has mb_size samples.
-    X_mb, _ = mnist.train.next_batch(mb_size)
-
-
-    # Run disciminator solver
-    _, D_loss_curr = sess.run([D_solver, D_loss], feed_dict={X: X_mb, Z: sample_Z(mb_size, Z_dim)})
-
-    # Run generator solver
-    _, G_loss_curr = sess.run([G_solver, G_loss], feed_dict={Z: sample_Z(mb_size, Z_dim)})
-
-    # Print loss
-    if it % 1000 == 0:
-        print('Iter: {}'.format(it))
-        print('D loss: {:.4}'. format(D_loss_curr))
+if __name__ == '__main__':
+    gan = GAN()
+    gan.train(epochs=30000, batch_size=32, sample_interval=200)
