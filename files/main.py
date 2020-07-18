@@ -88,7 +88,8 @@ class GAN():
         # Load the dataset
         (X_train, _), (_, _) = mnist.load_data()
 
-
+        # Rescale -1 to 1
+        
         # Adversarial ground truths
         valid = np.ones((batch_size, 1))
         fake = np.zeros((batch_size, 1))
