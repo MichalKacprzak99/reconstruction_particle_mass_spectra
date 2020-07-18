@@ -82,15 +82,13 @@ class GAN():
         validity = model(vec)
 
         return Model(vec, validity)
-
+    #do przystosowania po załadowaniu danych
     def train(self, epochs, batch_size=128, sample_interval=50):
 
         # Load the dataset
         (X_train, _), (_, _) = mnist.load_data()
 
         # Rescale -1 to 1
-        X_train = X_train / 127.5 - 1.
-        X_train = np.expand_dims(X_train, axis=3)
 
         # Adversarial ground truths
         valid = np.ones((batch_size, 1))
@@ -102,18 +100,18 @@ class GAN():
             #  Train Discriminator
             # ---------------------
 
-            # Select a random batch of images
+            # Select a random batch of vectors
             idx = np.random.randint(0, X_train.shape[0], batch_size)
-            imgs = X_train[idx]
+            vecs = X_train[idx]
 
             noise = np.random.normal(0, 1, (batch_size, self.latent_dim))
 
-            # Generate a batch of new images
-            gen_imgs = self.generator.predict(noise)
+            # Generate a batch of new vectors
+            gen_vecs = self.generator.predict(noise)
 
             # Train the discriminator
-            d_loss_real = self.discriminator.train_on_batch(imgs, valid)
-            d_loss_fake = self.discriminator.train_on_batch(gen_imgs, fake)
+            d_loss_real = self.discriminator.train_on_batch(vecs, valid)
+            d_loss_fake = self.discriminator.train_on_batch(gen_vecs, fake)
             d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)
 
             # ---------------------
