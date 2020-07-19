@@ -1,22 +1,23 @@
-from __future__ import print_function, division
-from tensorflow.keras.datasets import mnist
 from tensorflow.keras.layers import Input, Dense, Reshape, Flatten, Dropout
 from tensorflow.keras.layers import BatchNormalization, Activation, ZeroPadding2D
 from tensorflow.keras.layers import LeakyReLU
 from tensorflow.keras.layers import UpSampling2D, Conv2D
 from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras.optimizers import Adam
-
-import matplotlib.pyplot as plt
-
-import os
-
 import numpy as np
+import uproot
+from sklearn.preprocessing import MinMaxScaler
 
-class GAN():
+file = uproot.open("files\PhaseSpaceSimulation.root")
+events = file["PhaseSpaceTree"]
+NumEntries = events.numentries  #number of data objects (vectors)
+params = ["H1_PX","H1_PY","H1_PZ","H2_PX","H2_PY","H2_PZ","H3_PX","H3_PY","H3_PZ"]
+
+
+class GAN:
     def __init__(self):
 
-        self.vec_shape = (20,)
+        self.vec_shape = (9,)
 
         self.latent_dim = 100
         optimizer = Adam(0.0002, 0.5)
@@ -86,10 +87,14 @@ class GAN():
     def train(self, epochs, batch_size=128, sample_interval=50):
 
         # Load the dataset
-        (X_train, _), (_, _) = mnist.load_data()
+        data = events.lazyarrays(params)
+        data_arr = np.vstack(list(data[elem] for elem in params)).T
 
         # Rescale -1 to 1
-        
+        scaler = MinMaxScaler(feature_range=(-1, 1))
+        scaler = scaler.fit(data_arr)
+        scaled_data = scaler.transform(data_arr)
+
         # Adversarial ground truths
         valid = np.ones((batch_size, 1))
         fake = np.zeros((batch_size, 1))
@@ -101,14 +106,12 @@ class GAN():
             # ---------------------
 
             # Select a random batch of vectors
-            idx = np.random.randint(0, X_train.shape[0], batch_size)
-            vecs = X_train[idx]
-
+            idx = np.random.randint(0, scaled_data.shape[0], batch_size)
+            vecs = scaled_data[idx]
             noise = np.random.normal(0, 1, (batch_size, self.latent_dim))
 
             # Generate a batch of new vectors
             gen_vecs = self.generator.predict(noise)
-
             # Train the discriminator
             d_loss_real = self.discriminator.train_on_batch(vecs, valid)
             d_loss_fake = self.discriminator.train_on_batch(gen_vecs, fake)
@@ -129,4 +132,4 @@ class GAN():
 
 if __name__ == '__main__':
     gan = GAN()
-    gan.train(epochs=30000, batch_size=32, sample_interval=200)
+    gan.train(epochs=30000, batch_size=128, sample_interval=200)
