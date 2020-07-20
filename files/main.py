@@ -93,8 +93,10 @@ class GAN:
         data = events.lazyarrays(params)
         data_arr = np.vstack(list(data[elem] for elem in params)).T
 
-        fig, ax = plt.subplots()
+        fig, (ax1, ax2) = plt.subplots(1,2)
+        fig.set_size_inches(18,8)
         Mass_B = np.zeros(NumEntries)
+        P1x = np.zeros(NumEntries)
         for i in range(NumEntries):
             p_products = np.array([np.sqrt(np.square(data_arr[i][0]) + np.square(data_arr[i][1]) + np.square(data_arr[i][2])),
                        np.sqrt(np.square(data_arr[i][3]) + np.square(data_arr[i][4]) + np.square(data_arr[i][5])),
@@ -104,12 +106,16 @@ class GAN:
                        np.square(data_arr[i][2]+data_arr[i][5]+data_arr[i][8]))
             E_total = np.sqrt(np.square(p_products) + Mass_K ** 2)
             Mass_B[i] = math.sqrt(np.sum(E_total) ** 2  - p_total ** 2)
+            P1x[i] = data_arr[i][0]
 
-            #print(p_total)
+
             #print(E_total)
-        n, bins, patches = ax.hist(Mass_B, 100, range =(5279,5279.3))
-        ax.set_xlabel('Mass of the B meson [MeV]')
-        ax.set_ylabel('Number of counts')
+        n, bins, patches = ax1.hist(Mass_B, 100, range =(5279,5279.3))
+        ax1.set_xlabel('Mass of the B meson [MeV]')
+        ax1.set_ylabel('Number of counts')
+        n2, bins2, patches2 = ax2.hist(P1x, 100)
+        ax2.set_xlabel('Momentum of the K1 [MeV]')
+        ax2.set_ylabel('Number of counts')
         fig.savefig("images/InputData.png")
         plt.close()
 
@@ -165,10 +171,12 @@ class GAN:
         #scaler = MinMaxScaler(feature_range=(-1, 1))
         #scaler = scaler.fit(gen_raw)
         gen_p = scaler.inverse_transform(gen_raw)
-        print(gen_p)
+        #print(gen_p)
         cnt = 0;
-        fig, ax = plt.subplots()
+        fig, (ax1, ax2) = plt.subplots(1,2)
+        fig.set_size_inches(18,8)
         Mass_B = np.zeros(r)
+        P1x = np.zeros(r)
         for i in range(r):
             p_products = np.array([np.sqrt(np.square(gen_p[i][0]) + np.square(gen_p[i][1]) + np.square(gen_p[i][2])),
                        np.sqrt(np.square(gen_p[i][3]) + np.square(gen_p[i][4]) + np.square(gen_p[i][5])),
@@ -178,14 +186,16 @@ class GAN:
                        np.square(gen_p[i][2]+gen_p[i][5]+gen_p[i][8]))
             E_total = np.sqrt(np.square(p_products) + Mass_K ** 2)
             Mass_B[i] = math.sqrt(np.sum(E_total) ** 2  - p_total ** 2)
+            P1x[i] = gen_p[i][0]
                 #axs[i,j].imshow(gen_imgs[cnt, :,:,0], cmap='gray')
                 #axs[i,j].axis('off')
 
-            cnt += 1
-
-        n, bins, patches = ax.hist(Mass_B, 100)#, range =(5279,5279.3))
-        ax.set_xlabel('Mass of the B meson [MeV]')
-        ax.set_ylabel('Number of counts')
+        n, bins, patches = ax1.hist(Mass_B, 100)#, range =(5279,5279.3))
+        ax1.set_xlabel('Mass of the B meson [MeV]')
+        ax1.set_ylabel('Number of counts')
+        n2, bins2, patches2 = ax2.hist(P1x, 100)
+        ax2.set_xlabel('Momentum of the K1 [MeV]')
+        ax2.set_ylabel('Number of counts')
         fig.savefig("images/%d.png" % epoch)
         plt.close()
 
@@ -194,4 +204,4 @@ if __name__ == '__main__':
 
 
     gan = GAN()
-    gan.train(epochs=5000, batch_size=128, sample_interval=200)
+    gan.train(epochs=30000, batch_size=512, sample_interval=200)
