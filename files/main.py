@@ -155,15 +155,17 @@ class GAN:
 
             # If at save interval => save generated image samples
             if epoch % sample_interval == 0:
-                self.sample_images(epoch)
+                self.sample_images(epoch, scaler)
 
-    def sample_images(self, epoch):
+    def sample_images(self, epoch, scaler):
 
         r = 1000;
         noise = np.random.normal(0, 1, (r , self.latent_dim))
-        gen_p = self.generator.predict(noise)
+        gen_raw = self.generator.predict(noise)
+        #scaler = MinMaxScaler(feature_range=(-1, 1))
+        #scaler = scaler.fit(gen_raw)
+        gen_p = scaler.inverse_transform(gen_raw)
         print(gen_p)
-
         cnt = 0;
         fig, ax = plt.subplots()
         Mass_B = np.zeros(r)
@@ -192,4 +194,4 @@ if __name__ == '__main__':
 
 
     gan = GAN()
-    gan.train(epochs=3000, batch_size=128, sample_interval=200)
+    gan.train(epochs=5000, batch_size=128, sample_interval=200)
