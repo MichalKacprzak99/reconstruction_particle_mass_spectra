@@ -54,10 +54,10 @@ class GAN:
 
         model = Sequential()
 
-        model.add(Dense(25, input_dim=self.latent_dim))
+        model.add(Dense(66, input_dim=self.latent_dim))
         model.add(LeakyReLU(alpha=0.2))
         model.add(BatchNormalization(momentum=0.8))
-        model.add(Dense(51))
+        model.add(Dense(142))
         model.add(LeakyReLU(alpha=0.2))
         model.add(BatchNormalization(momentum=0.8))
         model.add(Dense(np.prod(self.vec_shape), activation='tanh'))
@@ -73,9 +73,9 @@ class GAN:
 
         model = Sequential()
         model.add(Flatten(input_shape=self.vec_shape))
-        model.add(Dense(51))
+        model.add(Dense(40))
         model.add(LeakyReLU(alpha=0.2))
-        model.add(Dense(25))
+        model.add(Dense(80))
         model.add(LeakyReLU(alpha=0.2))
         model.add(Dense(1, activation='sigmoid'))
         model.summary()
@@ -127,6 +127,7 @@ class GAN:
         fake = np.zeros((batch_size, 1))
 
         Average_mass_predicted = []
+        MPV_mass_predicted = []
 
         for epoch in range(epochs):
 
@@ -160,9 +161,9 @@ class GAN:
 
             # If at save interval => save generated image samples
             if epoch % sample_interval == 0:
-                self.sample_images(epoch, scaler, Average_mass_predicted, sample_interval, P1x)
+                self.sample_images(epoch, scaler, Average_mass_predicted, MPV_mass_predicted, sample_interval, P1x, Mass_B)
 
-    def sample_images(self, epoch, scaler, Average_mass_predicted, sample_interval, P1x_data):
+    def sample_images(self, epoch, scaler, Average_mass_predicted, MPV_mass_predicted, sample_interval, P1x_data, Mass_B_data):
 
         r = 10000;
         noise = np.random.normal(0, 1, (r , self.latent_dim))
@@ -190,9 +191,15 @@ class GAN:
                 #axs[i,j].axis('off')
 
         Average_mass_predicted.append(np.mean(Mass_B))
-        n, bins, patches = axs[0,0].hist(Mass_B, 100, range =(0,200000))
+
+        n, bins, patches = axs[0,0].hist(Mass_B, 200, range =(0,200000), alpha = 0.5, label = 'Generated data')
+        #axs[0,0].hist(Mass_B_data[0:10000], 200, range=(0,50000), alpha=0.5, label = 'Input data')
         axs[0,0].set_xlabel('Mass of the B meson [MeV]')
         axs[0,0].set_ylabel('Number of counts')
+        axs[0,0].axvline(x=np.mean(Mass_B_data), color ='r', linestyle = 'dashed')
+        #axs[0,0].legend(loc='upper right')
+        MPV_mass_predicted.append(np.mean(bins[np.where(n == np.amax(n))]))
+
         n2, bins2, patches2 = axs[0,1].hist(P1x, 100, range = (-100000,100000), alpha = 0.5, label = 'Generated data')
         axs[0,1].hist(P1x_data[0:10000], 100, range = (-100000,100000), label = 'Input data', alpha = 0.5)
         axs[0,1].legend(loc='upper right')
@@ -200,10 +207,21 @@ class GAN:
         axs[0,1].set_ylabel('Number of counts')
 
         axs[1,0].plot(range(0,epoch+sample_interval,sample_interval), Average_mass_predicted, c='r', linewidth=4.0)
-        axs[1,0].set_xlim([0,20000])
-        axs[1,0].set_ylim([0,200000])
+        axs[1,0].set_xlim([0,30000])
+        axs[1,0].set_ylim([100,500000])
         axs[1,0].set_xlabel('Epoch number')
         axs[1,0].set_ylabel('Mean of the B mass predicted')
+        axs[1,0].plot(range(0,30000+sample_interval,200), np.zeros(int(30000/200) +1)+np.mean(Mass_B_data),'m-.')
+        axs[1,0].set_yscale('log')
+
+
+        axs[1, 1].plot(range(0, epoch + sample_interval, sample_interval), MPV_mass_predicted, c='g', linewidth=4.0)
+        axs[1, 1].set_xlim([0, 30000])
+        axs[1, 1].set_ylim([100, 500000])
+        axs[1, 1].set_xlabel('Epoch number')
+        axs[1, 1].set_ylabel('MPV of the B mass predicted')
+        axs[1, 1].plot(range(0, 30000 + sample_interval, 200), np.zeros(int(30000/200) +1)+np.mean(Mass_B_data), 'm-.')
+        axs[1, 1].set_yscale('log')
         #fig.savefig("images/%d.png" % epoch)
 
 
@@ -217,4 +235,4 @@ if __name__ == '__main__':
 
 
     gan = GAN()
-    gan.train(epochs=30000, batch_size=512, sample_interval=200)
+    gan.train(epochs=30000, batch_size=256, sample_interval=200)
