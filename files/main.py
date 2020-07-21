@@ -54,13 +54,10 @@ class GAN:
 
         model = Sequential()
 
-        model.add(Dense(256, input_dim=self.latent_dim))
+        model.add(Dense(25, input_dim=self.latent_dim))
         model.add(LeakyReLU(alpha=0.2))
         model.add(BatchNormalization(momentum=0.8))
-        model.add(Dense(512))
-        model.add(LeakyReLU(alpha=0.2))
-        model.add(BatchNormalization(momentum=0.8))
-        model.add(Dense(1024))
+        model.add(Dense(51))
         model.add(LeakyReLU(alpha=0.2))
         model.add(BatchNormalization(momentum=0.8))
         model.add(Dense(np.prod(self.vec_shape), activation='tanh'))
@@ -76,9 +73,9 @@ class GAN:
 
         model = Sequential()
         model.add(Flatten(input_shape=self.vec_shape))
-        model.add(Dense(512))
+        model.add(Dense(51))
         model.add(LeakyReLU(alpha=0.2))
-        model.add(Dense(256))
+        model.add(Dense(25))
         model.add(LeakyReLU(alpha=0.2))
         model.add(Dense(1, activation='sigmoid'))
         model.summary()
@@ -113,7 +110,7 @@ class GAN:
         n, bins, patches = ax1.hist(Mass_B, 100, range =(5279,5279.3))
         ax1.set_xlabel('Mass of the B meson [MeV]')
         ax1.set_ylabel('Number of counts')
-        n2, bins2, patches2 = ax2.hist(P1x, 100)
+        n2, bins2, patches2 = ax2.hist(P1x, 100, range = (-100000,100000))
         ax2.set_xlabel('Momentum of the K1 [MeV]')
         ax2.set_ylabel('Number of counts')
         fig.savefig("images/InputData.png")
@@ -128,6 +125,8 @@ class GAN:
         # Adversarial ground truths
         valid = np.ones((batch_size, 1))
         fake = np.zeros((batch_size, 1))
+
+        Average_mass_predicted = []
 
         for epoch in range(epochs):
 
@@ -161,11 +160,11 @@ class GAN:
 
             # If at save interval => save generated image samples
             if epoch % sample_interval == 0:
-                self.sample_images(epoch, scaler)
+                self.sample_images(epoch, scaler, Average_mass_predicted, sample_interval, P1x)
 
-    def sample_images(self, epoch, scaler):
+    def sample_images(self, epoch, scaler, Average_mass_predicted, sample_interval, P1x_data):
 
-        r = 1000;
+        r = 10000;
         noise = np.random.normal(0, 1, (r , self.latent_dim))
         gen_raw = self.generator.predict(noise)
         #scaler = MinMaxScaler(feature_range=(-1, 1))
@@ -173,8 +172,8 @@ class GAN:
         gen_p = scaler.inverse_transform(gen_raw)
         #print(gen_p)
         cnt = 0;
-        fig, (ax1, ax2) = plt.subplots(1,2)
-        fig.set_size_inches(18,8)
+        fig, axs = plt.subplots(2,2)
+        fig.set_size_inches(18,11)
         Mass_B = np.zeros(r)
         P1x = np.zeros(r)
         for i in range(r):
@@ -190,13 +189,27 @@ class GAN:
                 #axs[i,j].imshow(gen_imgs[cnt, :,:,0], cmap='gray')
                 #axs[i,j].axis('off')
 
-        n, bins, patches = ax1.hist(Mass_B, 100)#, range =(5279,5279.3))
-        ax1.set_xlabel('Mass of the B meson [MeV]')
-        ax1.set_ylabel('Number of counts')
-        n2, bins2, patches2 = ax2.hist(P1x, 100)
-        ax2.set_xlabel('Momentum of the K1 [MeV]')
-        ax2.set_ylabel('Number of counts')
+        Average_mass_predicted.append(np.mean(Mass_B))
+        n, bins, patches = axs[0,0].hist(Mass_B, 100, range =(0,200000))
+        axs[0,0].set_xlabel('Mass of the B meson [MeV]')
+        axs[0,0].set_ylabel('Number of counts')
+        n2, bins2, patches2 = axs[0,1].hist(P1x, 100, range = (-100000,100000), alpha = 0.5, label = 'Generated data')
+        axs[0,1].hist(P1x_data[0:10000], 100, range = (-100000,100000), label = 'Input data', alpha = 0.5)
+        axs[0,1].legend(loc='upper right')
+        axs[0,1].set_xlabel('Momentum of the K1 [MeV]')
+        axs[0,1].set_ylabel('Number of counts')
+
+        axs[1,0].plot(range(0,epoch+sample_interval,sample_interval), Average_mass_predicted, c='r', linewidth=4.0)
+        axs[1,0].set_xlim([0,20000])
+        axs[1,0].set_ylim([0,200000])
+        axs[1,0].set_xlabel('Epoch number')
+        axs[1,0].set_ylabel('Mean of the B mass predicted')
+        #fig.savefig("images/%d.png" % epoch)
+
+
         fig.savefig("images/%d.png" % epoch)
+
+
         plt.close()
 
 
