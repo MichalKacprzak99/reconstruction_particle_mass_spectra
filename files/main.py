@@ -21,10 +21,10 @@ Mass_K = 493.677
 class GAN:
     def __init__(self):
 
-        self.vec_shape = (9,)
+        self.vec_shape = (10,)
 
-        self.latent_dim = 9
-        optimizer = Adam(0.0005, 0.5)
+        self.latent_dim = 100
+        optimizer = Adam(0.0001, 0.5)
 
         # Build and compile the discriminator
         self.discriminator = self.build_discriminator()
@@ -55,15 +55,13 @@ class GAN:
 
         model = Sequential()
 
-        model.add(Dense(32, input_dim=self.latent_dim))
+        model.add(Dense(9, input_dim=self.latent_dim))
         model.add(LeakyReLU(alpha=0.2))
         model.add(BatchNormalization(momentum=0.8))
-        model.add(Dense(64))
+        model.add(Dense(192))
         model.add(LeakyReLU(alpha=0.2))
         model.add(BatchNormalization(momentum=0.8))
-        model.add(Dense(128))
-        model.add(LeakyReLU(alpha=0.2))
-        model.add(BatchNormalization(momentum=0.8))
+
         model.add(Dense(np.prod(self.vec_shape), activation='tanh'))
         model.add(Reshape(self.vec_shape))
 
@@ -76,9 +74,9 @@ class GAN:
 
         model = Sequential()
         model.add(Flatten(input_shape=self.vec_shape))
-        model.add(Dense(128))
+        model.add(Dense(96))
         model.add(LeakyReLU(alpha=0.2))
-        model.add(Dense(64))
+        model.add(Dense(192))
         model.add(LeakyReLU(alpha=0.2))
         model.add(Dense(1, activation='sigmoid'))
         model.summary()
@@ -92,7 +90,17 @@ class GAN:
         # Load the dataset
         data = events.lazyarrays(params)
         data_arr = np.vstack(list(data[elem] for elem in params)).T
-
+        ped_calk = list()
+        for i in range(NumEntries):
+            ped_calk.append(np.sqrt(np.square(data_arr[i][0] + data_arr[i][3] + data_arr[i][6]) +
+                    np.square(data_arr[i][1] + data_arr[i][4] + data_arr[i][7]) +
+                    np.square(data_arr[i][2] + data_arr[i][5] + data_arr[i][8])))
+        data_arr = np.hstack((data_arr,np.array(ped_calk)[:, None]))
+        # list_of_params = list(data[elem] for elem in params)
+        # list_of_params.append(ped_calk)
+        #
+        # data_arr = np.vstack(list_of_params).T
+        # print(data_arr)
         fig, (ax1, ax2) = plt.subplots(1,2)
         fig.set_size_inches(18,8)
         Mass_B = np.zeros(NumEntries)
@@ -271,4 +279,4 @@ if __name__ == '__main__':
 
 
     gan = GAN()
-    gan.train(epochs=30000, batch_size=128, sample_interval=200)
+    gan.train(epochs=30000, batch_size=1024, sample_interval=200)
