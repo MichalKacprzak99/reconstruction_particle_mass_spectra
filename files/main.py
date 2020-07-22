@@ -1,3 +1,4 @@
+
 from tensorflow.keras.layers import Input, Dense, Reshape, Flatten, Dropout
 from tensorflow.keras.layers import BatchNormalization, Activation, ZeroPadding2D
 from tensorflow.keras.layers import LeakyReLU
@@ -22,8 +23,8 @@ class GAN:
 
         self.vec_shape = (9,)
 
-        self.latent_dim = 100
-        optimizer = Adam(0.0002, 0.5)
+        self.latent_dim = 9
+        optimizer = Adam(0.0005, 0.5)
 
         # Build and compile the discriminator
         self.discriminator = self.build_discriminator()
@@ -54,15 +55,17 @@ class GAN:
 
         model = Sequential()
 
-        model.add(Dense(66, input_dim=self.latent_dim))
+        model.add(Dense(32, input_dim=self.latent_dim))
         model.add(LeakyReLU(alpha=0.2))
         model.add(BatchNormalization(momentum=0.8))
-        model.add(Dense(142))
+        model.add(Dense(64))
+        model.add(LeakyReLU(alpha=0.2))
+        model.add(BatchNormalization(momentum=0.8))
+        model.add(Dense(128))
         model.add(LeakyReLU(alpha=0.2))
         model.add(BatchNormalization(momentum=0.8))
         model.add(Dense(np.prod(self.vec_shape), activation='tanh'))
         model.add(Reshape(self.vec_shape))
-        model.summary()
 
         noise = Input(shape=(self.latent_dim,))
         vec = model(noise)
@@ -73,9 +76,9 @@ class GAN:
 
         model = Sequential()
         model.add(Flatten(input_shape=self.vec_shape))
-        model.add(Dense(40))
+        model.add(Dense(128))
         model.add(LeakyReLU(alpha=0.2))
-        model.add(Dense(80))
+        model.add(Dense(64))
         model.add(LeakyReLU(alpha=0.2))
         model.add(Dense(1, activation='sigmoid'))
         model.summary()
@@ -93,7 +96,7 @@ class GAN:
         fig, (ax1, ax2) = plt.subplots(1,2)
         fig.set_size_inches(18,8)
         Mass_B = np.zeros(NumEntries)
-        P1x = np.zeros(NumEntries)
+        P1x = np.zeros(NumEntries); P3z = np.zeros(NumEntries); P_tot = np.zeros(NumEntries); E_tot = np.zeros(NumEntries)
         for i in range(NumEntries):
             p_products = np.array([np.sqrt(np.square(data_arr[i][0]) + np.square(data_arr[i][1]) + np.square(data_arr[i][2])),
                        np.sqrt(np.square(data_arr[i][3]) + np.square(data_arr[i][4]) + np.square(data_arr[i][5])),
@@ -104,13 +107,15 @@ class GAN:
             E_total = np.sqrt(np.square(p_products) + Mass_K ** 2)
             Mass_B[i] = math.sqrt(np.sum(E_total) ** 2  - p_total ** 2)
             P1x[i] = data_arr[i][0]
-
+            P3z[i] = data_arr[i][8]
+            P_tot[i] = p_total
+            E_tot[i] = np.sum(E_total)
 
             #print(E_total)
         n, bins, patches = ax1.hist(Mass_B, 100, range =(5279,5279.3))
         ax1.set_xlabel('Mass of the B meson [MeV]')
         ax1.set_ylabel('Number of counts')
-        n2, bins2, patches2 = ax2.hist(P1x, 100, range = (-100000,100000))
+        n2, bins2, patches2 = ax2.hist(P_tot, 100, range = (0,1000000))
         ax2.set_xlabel('Momentum of the K1 [MeV]')
         ax2.set_ylabel('Number of counts')
         fig.savefig("images/InputData.png")
@@ -128,6 +133,9 @@ class GAN:
 
         Average_mass_predicted = []
         MPV_mass_predicted = []
+        G_loss_epochs = []
+        D_loss_epochs = []
+        D_acc_epochs = []
 
         for epoch in range(epochs):
 
@@ -158,14 +166,17 @@ class GAN:
 
             # Plot the progress
             print("%d [D loss: %f, acc.: %.2f%%] [G loss: %f]" % (epoch, d_loss[0], 100*d_loss[1], g_loss))
+            G_loss_epochs.append(g_loss)
+            D_loss_epochs.append(d_loss[0])
+            D_acc_epochs.append(d_loss[1])
 
             # If at save interval => save generated image samples
             if epoch % sample_interval == 0:
-                self.sample_images(epoch, scaler, Average_mass_predicted, MPV_mass_predicted, sample_interval, P1x, Mass_B)
+                self.sample_images(epoch, scaler, Average_mass_predicted, MPV_mass_predicted, sample_interval, P1x, P3z, P_tot, E_tot, Mass_B, G_loss_epochs, D_loss_epochs, D_acc_epochs)
 
-    def sample_images(self, epoch, scaler, Average_mass_predicted, MPV_mass_predicted, sample_interval, P1x_data, Mass_B_data):
+    def sample_images(self, epoch, scaler, Average_mass_predicted, MPV_mass_predicted, sample_interval, P1x_data, P3z_data, P_tot_data, E_tot_data, Mass_B_data, G_loss_epochs, D_loss_epochs, D_acc_epochs):
 
-        r = 10000;
+        r = 5000;
         noise = np.random.normal(0, 1, (r , self.latent_dim))
         gen_raw = self.generator.predict(noise)
         #scaler = MinMaxScaler(feature_range=(-1, 1))
@@ -173,10 +184,10 @@ class GAN:
         gen_p = scaler.inverse_transform(gen_raw)
         #print(gen_p)
         cnt = 0;
-        fig, axs = plt.subplots(2,2)
-        fig.set_size_inches(18,11)
+        fig, axs = plt.subplots(3,3)
+        fig.set_size_inches(14,14)
         Mass_B = np.zeros(r)
-        P1x = np.zeros(r)
+        P1x = np.zeros(r); P3z = np.zeros(r); P_tot = np.zeros(r); E_tot = np.zeros(r)
         for i in range(r):
             p_products = np.array([np.sqrt(np.square(gen_p[i][0]) + np.square(gen_p[i][1]) + np.square(gen_p[i][2])),
                        np.sqrt(np.square(gen_p[i][3]) + np.square(gen_p[i][4]) + np.square(gen_p[i][5])),
@@ -186,13 +197,13 @@ class GAN:
                        np.square(gen_p[i][2]+gen_p[i][5]+gen_p[i][8]))
             E_total = np.sqrt(np.square(p_products) + Mass_K ** 2)
             Mass_B[i] = math.sqrt(np.sum(E_total) ** 2  - p_total ** 2)
-            P1x[i] = gen_p[i][0]
+            P1x[i] = gen_p[i][0]; P3z[i] = gen_p[i][8]; P_tot[i] = p_total; E_tot[i] =  np.sum(E_total);
                 #axs[i,j].imshow(gen_imgs[cnt, :,:,0], cmap='gray')
                 #axs[i,j].axis('off')
 
         Average_mass_predicted.append(np.mean(Mass_B))
 
-        n, bins, patches = axs[0,0].hist(Mass_B, 200, range =(0,200000), alpha = 0.5, label = 'Generated data')
+        n, bins, patches = axs[0,0].hist(Mass_B, 200, range =(0,50000), alpha = 0.5, label = 'Generated data')
         #axs[0,0].hist(Mass_B_data[0:10000], 200, range=(0,50000), alpha=0.5, label = 'Input data')
         axs[0,0].set_xlabel('Mass of the B meson [MeV]')
         axs[0,0].set_ylabel('Number of counts')
@@ -201,9 +212,9 @@ class GAN:
         MPV_mass_predicted.append(np.mean(bins[np.where(n == np.amax(n))]))
 
         n2, bins2, patches2 = axs[0,1].hist(P1x, 100, range = (-100000,100000), alpha = 0.5, label = 'Generated data')
-        axs[0,1].hist(P1x_data[0:10000], 100, range = (-100000,100000), label = 'Input data', alpha = 0.5)
+        axs[0,1].hist(P1x_data[0:r], 100, range = (-100000,100000), label = 'Input data', alpha = 0.5)
         axs[0,1].legend(loc='upper right')
-        axs[0,1].set_xlabel('Momentum of the K1 [MeV]')
+        axs[0,1].set_xlabel('Momentum X of K1 [MeV]')
         axs[0,1].set_ylabel('Number of counts')
 
         axs[1,0].plot(range(0,epoch+sample_interval,sample_interval), Average_mass_predicted, c='r', linewidth=4.0)
@@ -224,6 +235,31 @@ class GAN:
         axs[1, 1].set_yscale('log')
         #fig.savefig("images/%d.png" % epoch)
 
+        axs[2,1].hist(P3z, 100, range = (0,800000), alpha = 0.5, label = 'Generated data')
+        axs[2,1].hist(P3z_data[0:r], 100, range = (0,800000), label = 'Input data', alpha = 0.5)
+        axs[2,1].legend(loc='upper right')
+        axs[2,1].set_xlabel('Momentum Z of K3 [MeV]')
+        axs[2,1].set_ylabel('Number of counts')
+
+        axs[2, 0].plot(range(0, epoch + 1, 1), G_loss_epochs, c='g', linewidth=1.0, label = 'G loss')
+        axs[2, 0].plot(range(0, epoch + 1, 1), D_loss_epochs, c='r', linewidth=1.0, label = 'D loss')
+        axs[2, 0].plot(range(0, epoch + 1, 1), D_acc_epochs, c='c', linewidth=1.0, label = 'D accuracy')
+        axs[2, 0].set_xlim([0, 30000])
+        axs[2, 0].set_ylim([0, 2])
+        axs[2, 0].set_xlabel('Epoch number')
+        axs[2, 0].set_ylabel('Relative ratio')
+
+        axs[0,2].hist(P_tot, 100, range = (0,1000000), alpha = 0.5, label = 'Generated data')
+        axs[0,2].hist(P_tot_data[0:r], 100, range = (0,1000000), label = 'Input data', alpha = 0.5)
+        axs[0,2].legend(loc='upper right')
+        axs[0,2].set_xlabel('Total momentum [MeV]')
+        axs[0,2].set_ylabel('Number of counts')
+
+        axs[1,2].hist(E_tot, 100, range = (0,1000000), alpha = 0.5, label = 'Generated data')
+        axs[1,2].hist(E_tot_data[0:r], 100, range = (0,1000000), label = 'Input data', alpha = 0.5)
+        axs[1,2].legend(loc='upper right')
+        axs[1,2].set_xlabel('Total energy [MeV]')
+        axs[1,2].set_ylabel('Number of counts')
 
         fig.savefig("images/%d.png" % epoch)
 
@@ -235,4 +271,4 @@ if __name__ == '__main__':
 
 
     gan = GAN()
-    gan.train(epochs=30000, batch_size=256, sample_interval=200)
+    gan.train(epochs=30000, batch_size=128, sample_interval=200)
