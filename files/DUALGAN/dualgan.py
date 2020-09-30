@@ -227,13 +227,12 @@ class DUALGAN():
             E_tot[i] = np.sum(E_total)
 
         Average_mass_predicted.append(np.mean(Mass_B))
-        print(np.mean(Mass_B_data))
-        print(np.mean(Mass_B))
-        n, bins, patches = axs[0, 0].hist(Mass_B, 200, range=(0, 50000), alpha=0.5, label='Generated data')
+
+        n, bins, patches = axs[0, 0].hist(Mass_B, 200, range=(5278, 5280), alpha=0.5, label='Generated data')
         # axs[0,0].hist(Mass_B_data[0:10000], 200, range=(0,50000), alpha=0.5, label = 'Input data')
         axs[0, 0].set_xlabel('Mass of the B meson [MeV]')
         axs[0, 0].set_ylabel('Number of counts')
-        axs[0, 0].axvline(x=np.mean(Mass_B_data), color='r', linestyle='dashed')
+        axs[0, 0].axvline(5279.29, color='r', linestyle='dashed')
         # axs[0,0].legend(loc='upper right')
         MPV_mass_predicted.append(np.mean(bins[np.where(n == np.amax(n))]))
 
@@ -244,20 +243,20 @@ class DUALGAN():
         axs[0, 1].set_ylabel('Number of counts')
 
         axs[1, 0].plot(range(0, epoch + sample_interval, sample_interval), Average_mass_predicted, c='r', linewidth=4.0)
-        axs[1, 0].set_xlim([0, 30000])
-        axs[1, 0].set_ylim([100, 500000])
+        axs[1, 0].set_xlim([0, 100])
+        axs[1, 0].set_ylim([5000, 6000])
         axs[1, 0].set_xlabel('Epoch number')
         axs[1, 0].set_ylabel('Mean of the B mass predicted')
-        axs[1, 0].plot(range(0, 30000 + sample_interval, 200), np.zeros(int(30000 / 200) + 1) + np.mean(Mass_B_data),
+        axs[1, 0].plot(range(0, 100 + sample_interval, 20), np.zeros(int(100 / 20) + 1) + np.mean(Mass_B_data),
                        'm-.')
         axs[1, 0].set_yscale('log')
 
         axs[1, 1].plot(range(0, epoch + sample_interval, sample_interval), MPV_mass_predicted, c='g', linewidth=4.0)
-        axs[1, 1].set_xlim([0, 30000])
-        axs[1, 1].set_ylim([100, 500000])
+        axs[1, 1].set_xlim([0, 100])
+        axs[1, 1].set_ylim([5000, 6000])
         axs[1, 1].set_xlabel('Epoch number')
         axs[1, 1].set_ylabel('MPV of the B mass predicted')
-        axs[1, 1].plot(range(0, 30000 + sample_interval, 200), np.zeros(int(30000 / 200) + 1) + np.mean(Mass_B_data),
+        axs[1, 1].plot(range(0, 100 + sample_interval, 20), np.zeros(int(100 / 20) + 1) + np.mean(Mass_B_data),
                        'm-.')
         axs[1, 1].set_yscale('log')
         # fig.savefig("images/%d.png" % epoch)
