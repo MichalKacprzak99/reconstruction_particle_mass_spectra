@@ -5,7 +5,7 @@ Project was created during participation in the Krakow Applied Physicsand Comput
 ## Participants 
  - Michał Kacprzak;
  - Paweł Kopciewicz as supervisor;
-##Technologies
+## Technologies
 * Python 3.7
 
 
