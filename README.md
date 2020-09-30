@@ -48,6 +48,7 @@ Implementation of _Wasserstein GAN_ (with DCGAN generator and discriminator).
 [Code](files/WGAN/wgan.py)
 
 Paper: https://arxiv.org/abs/1701.07875
+
 ## License
 [MIT](https://choosealicense.com/licenses/mit/)
 
